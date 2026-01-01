@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="hi">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Discord Portrait V23 - Media Assets Only</title>
+    <title>Discord Portrait V25 - Universal Sound Fix</title>
     <style>
         :root {
             --bg-color: #36393f;
@@ -14,12 +14,12 @@
         html, body {
             margin: 0; padding: 0;
             background: #111; color: white;
-            font-family: 'Segoe UI', sans-serif;
+            font-family: 'Segoe UI', Tahoma, sans-serif;
             height: 100vh; overflow: hidden;
             display: flex; flex-direction: column; align-items: center;
         }
 
-        /* 9:16 Portrait Canvas */
+        /* 9:16 Portrait Frame */
         #render-area { flex: 1; display: flex; justify-content: center; align-items: center; width: 100%; overflow: hidden; }
         #scale-wrapper { transform-origin: center center; display: flex; }
         #render-frame {
@@ -31,7 +31,6 @@
 
         #chat-scroller { flex: 1; padding: 60px 50px; display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden; }
 
-        /* Grouped Message Layout (No Indent) */
         .msg-block { display: flex; margin-top: 45px; animation: fadeIn 0.15s; }
         .msg-block.compact { margin-top: 8px; padding-left: 110px; }
         .avatar { width: 90px; height: 90px; border-radius: 50%; margin-right: 20px; object-fit: cover; flex-shrink: 0; }
@@ -39,55 +38,57 @@
         .username { font-size: 42px; font-weight: bold; margin-right: 20px; } 
         .text-content { font-size: 44px; color: var(--text-color); line-height: 1.4; word-wrap: break-word; white-space: pre-wrap; margin: 0; }
 
-        /* Media Style: 16:9 Landscape [cite: 2025-07-25] */
         .media-content { 
             margin-top: 20px; border-radius: 20px; 
             width: 100%; aspect-ratio: 16 / 9;
-            object-fit: cover; 
-            border: 2px solid rgba(255,255,255,0.05); 
+            object-fit: cover; border: 2px solid rgba(255,255,255,0.05); 
         }
 
-        /* UI Modals */
+        #countdown-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); z-index: 30000;
+            justify-content: center; align-items: center; font-size: 300px; font-weight: bold; color: #5865f2;
+        }
+
         #overlay, .modal { 
             position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
             background: rgba(0,0,0,0.97); z-index: 20000; 
             display: flex; justify-content: center; align-items: center; flex-direction: column;
         }
-        .modal-box { background: #2f3136; padding: 40px; border-radius: 20px; width: 85%; max-height: 85vh; overflow-y: auto; text-align: center; }
-        textarea { width: 100%; height: 280px; background: #40444b; color: white; border-radius: 10px; padding: 15px; font-size: 18px; margin-bottom: 20px; }
+        .modal-box { background: #2f3136; padding: 40px; border-radius: 20px; width: 85%; text-align: center; }
+        textarea { width: 100%; height: 280px; background: #40444b; color: white; border-radius: 10px; padding: 15px; font-size: 18px; margin-bottom: 20px; border:none; }
         
-        .upload-item { background: #36393f; padding: 20px; margin: 12px 0; border-radius: 10px; text-align: left; border: 1px solid #444; }
-        .upload-item label { display: block; margin-bottom: 8px; color: #5865f2; font-weight: bold; }
-
+        .upload-item { background: #36393f; padding: 15px; margin: 10px 0; border-radius: 10px; text-align: left; border: 1px solid #444; }
         button { padding: 16px 30px; font-size: 18px; font-weight: bold; cursor: pointer; border-radius: 10px; border: none; background: #5865f2; color: white; width: 100%; margin-top: 10px; }
-        .secondary-btn { background: #4f545c; }
 
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
 
+    <div id="countdown-overlay">5</div>
+
     <div id="overlay">
         <div class="modal-box">
             <h2>📜 Paste Script</h2>
-            <textarea id="scriptInput" placeholder="[User]: Hi! <media:image.png>"></textarea>
-            <button onclick="scanForMedia()">Next: Upload Chat Images ➡️</button>
+            <textarea id="scriptInput" placeholder="[Delulu]: Notification test! 🚀 <media:img.png>"></textarea>
+            <button onclick="scanAssets()">Scan Media Assets ➡️</button>
         </div>
     </div>
 
     <div id="asset-modal" class="modal" style="display:none;">
         <div class="modal-box">
-            <h2>🖼️ Upload Chat Media</h2>
-            <p style="color: #bbb;">PFPs will load from /assets/pfps automatically.</p>
-            <div id="media-list"></div>
-            <button onclick="startEngine()" style="background:#3ba55d;">🚀 Start Video Rendering</button>
+            <h2>🖼️ Upload Media for Chat</h2>
+            <div id="asset-list"></div>
+            <button onclick="prepareStart()" style="background:#3ba55d;">Start 5s Timer & Run 🚀</button>
         </div>
     </div>
 
     <div id="ui-layer" style="width: 100%; background: #222; padding: 10px; display: flex; gap: 10px; z-index: 10001;">
-        <button onclick="autoPlay()">▶️ Play</button>
-        <button onclick="prev()" class="secondary-btn">⬅️ Back</button>
-        <div id="counter" style="color: white; align-self: center; margin-left: auto;">0/0</div>
+        <button onclick="toggleFullscreen()">📺 Fullscreen</button>
+        <button onclick="autoPlay()">▶️ Play Video</button>
+        <button onclick="resetEngine()" style="background:#4f545c;">🔄 Reset</button>
+        <div id="counter" style="color: white; align-self: center; margin-left: auto; font-family: monospace;">0/0</div>
     </div>
 
     <div id="render-area">
@@ -105,19 +106,23 @@
         let script = [];
         let index = -1;
         let lastUser = null;
-        let mediaRegistry = {}; // Registry for chat images
+        let mediaAssets = {}; 
 
         const chat = document.getElementById('chat-scroller');
         const frame = document.getElementById('render-frame');
+        const countdownOverlay = document.getElementById('countdown-overlay');
 
-        // 1. Scan for <media:> tags (केवल मीडिया टैग्स स्कैन करें)
-        function scanForMedia() {
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) { document.documentElement.requestFullscreen(); } 
+            else { document.exitFullscreen(); }
+        }
+
+        function scanAssets() {
             const text = document.getElementById('scriptInput').value;
             script = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
             
             const mediaRegex = /<media:\s*(.*?)\s*>/g;
             const requiredMedia = new Set();
-
             script.forEach(line => {
                 let m;
                 while ((m = mediaRegex.exec(line)) !== null) requiredMedia.add(m[1]);
@@ -125,42 +130,44 @@
 
             const mediaArray = Array.from(requiredMedia);
             if (mediaArray.length > 0) {
-                renderMediaUI(mediaArray);
-            } else {
-                startEngine(); // No media found, skip to engine
-            }
+                const list = document.getElementById('asset-list');
+                list.innerHTML = "";
+                mediaArray.forEach(file => {
+                    const item = document.createElement('div');
+                    item.className = 'upload-item';
+                    item.innerHTML = `<label>Upload: ${file}</label><br><input type="file" onchange="registerAsset('${file}', this)">`;
+                    list.appendChild(item);
+                });
+                document.getElementById('overlay').style.display = 'none';
+                document.getElementById('asset-modal').style.display = 'flex';
+            } else { prepareStart(); }
         }
 
-        // 2. Generate Upload Buttons (अपलोड बटन्स जनरेट करें)
-        function renderMediaUI(files) {
-            const list = document.getElementById('media-list');
-            list.innerHTML = "";
-            files.forEach(file => {
-                const item = document.createElement('div');
-                item.className = 'upload-item';
-                item.innerHTML = `
-                    <label>File: ${file}</label>
-                    <input type="file" accept="image/*" onchange="storeMedia('${file}', this)">
-                `;
-                list.appendChild(item);
-            });
-            document.getElementById('overlay').style.display = 'none';
-            document.getElementById('asset-modal').style.display = 'flex';
-        }
-
-        function storeMedia(fileName, input) {
+        function registerAsset(name, input) {
             const file = input.files[0];
-            if (file) {
-                if (mediaRegistry[fileName]) URL.revokeObjectURL(mediaRegistry[fileName]);
-                mediaRegistry[fileName] = URL.createObjectURL(file);
-            }
+            if (file) mediaAssets[name] = URL.createObjectURL(file);
         }
 
-        function startEngine() {
+        function prepareStart() {
             document.getElementById('overlay').style.display = 'none';
             document.getElementById('asset-modal').style.display = 'none';
             adjustScale();
-            window.speechSynthesis.speak(new SpeechSynthesisUtterance("")); // Unlock TTS
+            startCountdown();
+        }
+
+        function startCountdown() {
+            countdownOverlay.style.display = 'flex';
+            let timer = 5;
+            countdownOverlay.innerText = timer;
+            const interval = setInterval(() => {
+                timer--;
+                if (timer > 0) { countdownOverlay.innerText = timer; } 
+                else {
+                    clearInterval(interval);
+                    countdownOverlay.style.display = 'none';
+                    autoPlay();
+                }
+            }, 1000);
         }
 
         async function render(idx) {
@@ -176,10 +183,13 @@
             const block = document.createElement('div');
             block.className = `msg-block ${isCompact ? 'compact' : ''}`;
             
+            // --- UNIVERSAL SOUND PLAY (यूनिवर्सल साउंड प्ले) ---
+            // Triggers for every message block added
+            new Audio('assets/sound/message.mp3').play();
+
             let html = '';
             if (!isCompact) {
-                // Auto-load PFP from local assets folder
-                html += `<img class="avatar" src="assets/pfps/${user}.png" onerror="this.src='assets/pfps/default.png'">`;
+                html += `<img class="avatar" src="assets/pfps/${user.toLowerCase()}.png" onerror="this.src='assets/pfps/default.png'">`;
                 html += `<div class="msg-body"><div class="username">${user}</div>`;
             } else {
                 html += `<div class="msg-body">`;
@@ -187,22 +197,18 @@
 
             if (mediaMatch) {
                 const fileName = mediaMatch[1];
-                const src = mediaRegistry[fileName] || "";
-                html += `<img class="media-content" src="${src}">`;
+                html += `<img class="media-content" src="${mediaAssets[fileName] || ''}">`;
                 block.innerHTML = html + `</div>`;
                 chat.appendChild(block);
-                new Audio('assets/sound/message.mp3').play();
-                await new Promise(r => setTimeout(r, 2500));
+                await new Promise(r => setTimeout(r, 2000));
             } else {
                 html += `<div class="text-content">${content}</div></div>`;
                 block.innerHTML = html;
                 chat.appendChild(block);
-                const utt = new SpeechSynthesisUtterance(content);
-                await new Promise(res => {
-                    utt.onend = () => setTimeout(res, 600);
-                    window.speechSynthesis.speak(utt);
-                });
+                const delay = Math.max(1500, content.length * 60);
+                await new Promise(r => setTimeout(r, delay));
             }
+
             lastUser = user;
             if (chat.scrollHeight > chat.clientHeight) chat.removeChild(chat.firstChild);
             document.getElementById('counter').innerText = `${idx+1}/${script.length}`;
@@ -221,7 +227,7 @@
         }
         window.addEventListener('resize', adjustScale);
 
-        function prev() { index = -1; chat.innerHTML = ''; lastUser = null; }
+        function resetEngine() { location.reload(); }
     </script>
 </body>
 </html>
