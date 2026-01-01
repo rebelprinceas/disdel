@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Discord Portrait V29 - True Video Playback</title>
+    <title>Discord Portrait V30 - No-Lag Performance</title>
     <style>
         :root {
             --bg-color: #36393f;
@@ -22,7 +22,6 @@
         #render-area { flex: 1; display: flex; justify-content: center; align-items: center; width: 100%; overflow: hidden; }
         #scale-wrapper { transform-origin: center center; display: flex; }
         
-        /* 9:16 Portrait Canvas */
         #render-frame {
             width: 1080px; height: 1920px;
             background: var(--bg-color);
@@ -32,35 +31,19 @@
 
         #chat-scroller { flex: 1; padding: 60px 50px; display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden; z-index: 5; }
 
-        /* Message Layout */
-        .msg-block { display: flex; margin-top: 45px; animation: fadeIn 0.15s; }
+        .msg-block { display: flex; margin-top: 45px; animation: fadeIn 0.1s; }
         .msg-block.compact { margin-top: 8px; padding-left: 110px; }
         .avatar { width: 90px; height: 90px; border-radius: 50%; margin-right: 20px; object-fit: cover; flex-shrink: 0; }
         .msg-body { flex: 1; max-width: 850px; }
         .username { font-size: 42px; font-weight: bold; margin-right: 20px; } 
         .text-content { font-size: 44px; color: var(--text-color); line-height: 1.4; word-wrap: break-word; white-space: pre-wrap; margin: 0; }
 
-        /* Adaptive GIF/Image (Original Ratio) */
-        .media-gif { 
-            margin-top: 20px; border-radius: 20px; 
-            max-width: 100%; height: auto; 
-            border: 2px solid rgba(255,255,255,0.05); 
-        }
+        .media-gif { margin-top: 20px; border-radius: 20px; max-width: 100%; height: auto; border: 2px solid rgba(255,255,255,0.05); }
+        .media-thumbnail { margin-top: 20px; border-radius: 20px; width: 100%; height: auto; border: 2px solid rgba(255,255,255,0.05); background: #000; }
 
-        /* Video Thumbnail in Chat History [NEW] */
-        .media-thumbnail {
-            margin-top: 20px; border-radius: 20px;
-            width: 100%; height: auto; /* Maintain aspect ratio in chat */
-            border: 2px solid rgba(255,255,255,0.05);
-            background: #000;
-        }
-
-        /* Full Screen Video Overlay Player (Plays first) [FIXED Z-INDEX] */
         .full-screen-video-player {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            object-fit: contain; /* Ensure whole video is visible */
-            z-index: 100; /* Must be higher than chat and header */
-            background: rgba(0,0,0,0.9);
+            object-fit: contain; z-index: 100; background: rgba(0,0,0,0.95);
             display: none; 
         }
 
@@ -78,7 +61,6 @@
         .modal-box { background: #2f3136; padding: 40px; border-radius: 20px; width: 85%; max-height: 80vh; overflow-y: auto; text-align: center; }
         textarea { width: 100%; height: 250px; background: #40444b; color: white; border-radius: 10px; padding: 15px; font-size: 18px; border:none; margin-bottom: 10px;}
         
-        .upload-item { background: #36393f; padding: 15px; margin: 10px 0; border-radius: 10px; text-align: left; }
         button { padding: 16px 30px; font-size: 18px; font-weight: bold; cursor: pointer; border-radius: 10px; border: none; background: #5865f2; color: white; width: 100%; margin-top: 10px; }
 
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
@@ -90,33 +72,31 @@
 
     <div id="overlay">
         <div class="modal-box">
-            <h2>📜 Step 1: Paste Script</h2>
-            <textarea id="scriptInput" placeholder="[Delulu]: Watch this! <media:video.mp4>"></textarea>
-            <button onclick="scanAndPreload()">Scan & Prepare Assets ➡️</button>
+            <h2>📜 Discord Portrait V30</h2>
+            <textarea id="scriptInput" placeholder="[Delulu]: Text message! <media:video.mp4>"></textarea>
+            <button onclick="scanAssets()">Scan Media & PFPs ➡️</button>
         </div>
     </div>
 
     <div id="asset-modal" class="modal" style="display:none;">
         <div class="modal-box">
-            <h2>🖼️ Step 2: Asset Pre-loader</h2>
-            <p id="loading-msg" style="color: #aaa; margin-bottom: 15px;">Upload GIFs or MP4 video files.</p>
-            <div id="media-upload-list"></div>
-            <button id="final-start-btn" onclick="startTimer()" style="background:#3ba55d; display:none;">Everything Ready! Start 🚀</button>
+            <h2>🖼️ Asset Preloader</h2>
+            <div id="media-list" style="margin-bottom: 20px;"></div>
+            <button id="start-btn" onclick="startTimer()" style="background:#3ba55d;">Start 5s Timer 🚀</button>
         </div>
     </div>
 
     <div id="ui-layer" style="width: 100%; background: #222; padding: 10px; display: flex; gap: 10px; z-index: 10001;">
-        <button onclick="document.documentElement.requestFullscreen()">📺 Fullscreen</button>
-        <button onclick="autoPlay()">▶️ Start Playback</button>
+        <button onclick="document.documentElement.requestFullscreen()">📺 Full</button>
+        <button onclick="autoPlay()">▶️ Play</button>
         <button onclick="location.reload()" style="background:#4f545c;">🔄 Reset</button>
-        <div id="counter" style="color: white; align-self: center; margin-left: auto; font-family: monospace;">0/0</div>
+        <div id="counter" style="color: white; align-self: center; margin-left: auto;">0/0</div>
     </div>
 
     <div id="render-area">
         <div id="scale-wrapper">
             <div id="render-frame">
-                <video id="overlay-player" class="full-screen-video-player" Playsinline webkit-playsinline></video>
-                
+                <video id="overlay-player" class="full-screen-video-player" muted playsinline></video>
                 <div id="chat-scroller"></div>
                 <div style="height:200px; padding:0 50px 80px; display:flex; align-items:center;">
                     <div style="background:#40444b; width:100%; height:100px; border-radius:50px; display:flex; align-items:center; padding:0 40px; font-size:36px; color:#72767d;">Message...</div>
@@ -132,31 +112,34 @@
         let lastUser = null;
         const assetCache = {}; 
 
-        function scanAndPreload() {
+        function scanAssets() {
             const text = document.getElementById('scriptInput').value;
             script = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+            
             const mediaRegex = /<media:\s*(.*?)\s*>/g;
             const mediaFiles = new Set();
             script.forEach(line => {
                 let m;
                 while ((m = mediaRegex.exec(line)) !== null) mediaFiles.add(m[1]);
             });
+
             document.getElementById('overlay').style.display = 'none';
             document.getElementById('asset-modal').style.display = 'flex';
-            const list = document.getElementById('media-upload-list');
-            list.innerHTML = mediaFiles.size > 0 ? "" : "<p>No media found.</p>";
+            
+            const list = document.getElementById('media-list');
+            list.innerHTML = mediaFiles.size > 0 ? "" : "<p>No media files found. Click Start.</p>";
+            
             mediaFiles.forEach(file => {
                 const item = document.createElement('div');
-                item.className = 'upload-item';
-                item.innerHTML = `<label>Upload ${file}:</label><br><input type="file" onchange="loadAssetFile('${file}', this)">`;
+                item.style.marginBottom = "10px";
+                item.innerHTML = `<label style="color:#aaa;">Upload ${file}:</label><br><input type="file" onchange="cacheFile('${file}', this)">`;
                 list.appendChild(item);
             });
-            document.getElementById('final-start-btn').style.display = 'block';
         }
 
-        function loadAssetFile(fileName, input) {
+        function cacheFile(name, input) {
             const file = input.files[0];
-            if (file) { assetCache[fileName] = URL.createObjectURL(file); }
+            if (file) assetCache[name] = URL.createObjectURL(file);
         }
 
         function startTimer() {
@@ -164,8 +147,7 @@
             adjustScale();
             let timer = 5;
             const overlay = document.getElementById('countdown-overlay');
-            overlay.style.display = 'flex';
-            overlay.innerText = timer;
+            overlay.style.display = 'flex'; overlay.innerText = timer;
             const int = setInterval(() => {
                 timer--;
                 if (timer > 0) overlay.innerText = timer;
@@ -182,70 +164,67 @@
             const content = match[2].trim();
             const mediaMatch = content.match(/<media:\s*(.*?)\s*>/);
 
-            const isCompact = (user === lastUser);
+            // Corrected Grouping Logic (ग्रुपिंग लॉजिक फिक्स)
+            const isCompact = (lastUser && lastUser.toLowerCase() === user.toLowerCase());
             const block = document.createElement('div');
             block.className = `msg-block ${isCompact ? 'compact' : ''}`;
             
-            messageSound.currentTime = 0;
-            messageSound.play();
+            // Universal Sound Trigger
+            messageSound.currentTime = 0; messageSound.play();
 
             let html = '';
             if (!isCompact) {
-                html += `<img class="avatar" src="assets/pfps/${user.toLowerCase()}.png" onerror="this.src='assets/pfps/default.png'">`;
+                // Case-Insensitive PFP loader
+                const pfpPath = `assets/pfps/${user.toLowerCase()}.png`;
+                html += `<img class="avatar" src="${pfpPath}" onerror="this.src='assets/pfps/default.png'">`;
                 html += `<div class="msg-body"><div class="username">${user}</div>`;
             } else { html += `<div class="msg-body">`; }
+
+            const chatScroller = document.getElementById('chat-scroller');
 
             if (mediaMatch) {
                 const fileName = mediaMatch[1];
                 const src = assetCache[fileName] || "";
                 const isVideo = fileName.match(/\.(mp4|webm|mov)$/i);
 
-                if (isVideo) {
-                    // 1. Play in Overlay first (Full Screen experience)
+                if (isVideo && src) {
+                    // Full Screen Playback Phase
                     const overlayPlayer = document.getElementById('overlay-player');
                     overlayPlayer.src = src;
                     overlayPlayer.style.display = 'block';
-                    overlayPlayer.play();
+                    await overlayPlayer.play();
 
-                    // Wait for video to finish playing
-                    await new Promise(resolve => {
-                        overlayPlayer.onended = () => {
-                            overlayPlayer.style.display = 'none';
-                            overlayPlayer.src = ""; // clear source
-                            resolve();
-                        };
-                        // Fallback timeout for very long videos or errors
-                        setTimeout(() => { if(overlayPlayer.style.display != 'none') { overlayPlayer.style.display = 'none'; resolve(); }}, 60000);
+                    await new Promise(res => {
+                        overlayPlayer.onended = () => { overlayPlayer.style.display = 'none'; res(); };
+                        setTimeout(() => { if(overlayPlayer.style.display !== 'none') { overlayPlayer.style.display='none'; res(); }}, 8000);
                     });
 
-                    // 2. After finish, add to chat history as a thumbnail with controls
+                    // Chat Thumbnail Phase
                     html += `<video class="media-thumbnail" src="${src}" controls></video>`;
-                    block.innerHTML = html + `</div>`;
-                    chat.appendChild(block);
-                    await new Promise(r => setTimeout(r, 1000)); // Short pause after insertion
-
-                } else {
-                    // GIF/Image: Render directly in chat
+                } else if (src) {
                     html += `<img class="media-gif" src="${src}">`;
-                    block.innerHTML = html + `</div>`;
-                    chat.appendChild(block);
-                    await new Promise(r => setTimeout(r, 2500));
                 }
+                block.innerHTML = html + `</div>`;
+                chatScroller.appendChild(block);
+                await new Promise(r => setTimeout(r, 1500));
             } else {
                 html += `<div class="text-content">${content}</div></div>`;
                 block.innerHTML = html;
-                chat.appendChild(block);
-                const delay = Math.max(1600, content.length * 60);
+                chatScroller.appendChild(block);
+                const delay = Math.max(1400, content.length * 60);
                 await new Promise(r => setTimeout(r, delay));
             }
 
             lastUser = user;
-            if (chat.scrollHeight > chat.clientHeight) chat.removeChild(chat.firstChild);
+            if (chatScroller.scrollHeight > chatScroller.clientHeight) chatScroller.removeChild(chatScroller.firstChild);
             document.getElementById('counter').innerText = `${idx+1}/${script.length}`;
         }
 
         async function autoPlay() {
-            for (let i = index + 1; i < script.length; i++) { index = i; await render(i); }
+            for (let i = index + 1; i < script.length; i++) {
+                index = i;
+                await render(i);
+            }
         }
 
         function adjustScale() {
@@ -253,6 +232,7 @@
             document.getElementById('scale-wrapper').style.transform = `scale(${scale})`;
         }
         window.addEventListener('resize', adjustScale);
+        adjustScale();
     </script>
 </body>
 </html>
