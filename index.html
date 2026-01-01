@@ -2,11 +2,11 @@
 <html lang="hi">
 <head>
     <meta charset="UTF-8">
-    <title>Pro Discord Engine V8 - Perfect Timing & Layout</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Discord Portrait V22 - Asset Preloader</title>
     <style>
         :root {
             --bg-color: #36393f;
-            --input-color: #40444b;
             --text-color: #dcddde;
             --timestamp-color: #72767d;
         }
@@ -14,254 +14,227 @@
         html, body {
             margin: 0; padding: 0;
             background: #111; color: white;
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-family: 'Segoe UI', sans-serif;
+            height: 100vh; overflow: hidden;
             display: flex; flex-direction: column; align-items: center;
-            min-height: 100vh;
         }
 
-        /* UI Layer */
-        #ui-layer {
-            width: 100%; background: #222; padding: 15px;
-            display: flex; justify-content: center; gap: 20px;
-            border-bottom: 2px solid #444; z-index: 10001;
-        }
-
-        button { padding: 12px 24px; font-size: 16px; font-weight: bold; cursor: pointer; border-radius: 8px; border: none; background: #5865f2; color: white; }
-        .rec-btn { background: #ed4245; }
-        .rec-btn.active { background: #3ba55d; animation: pulse 1s infinite; }
-
-        #render-area { flex: 1; display: flex; justify-content: center; align-items: center; width: 100%; padding: 20px; }
+        /* Portrait Canvas 9:16 */
+        #render-area { flex: 1; display: flex; justify-content: center; align-items: center; width: 100%; overflow: hidden; }
         #scale-wrapper { transform-origin: center center; display: flex; }
-
-        /* 1080p CANVAS */
         #render-frame {
-            width: 1920px; height: 1080px;
+            width: 1080px; height: 1920px;
             background: var(--bg-color);
             position: relative; display: flex; flex-direction: column;
             overflow: hidden;
         }
 
-        #chat-scroller {
-            flex: 1; padding: 60px 100px;
-            display: flex; flex-direction: column; justify-content: flex-end; 
-            overflow: hidden;
-        }
+        #chat-scroller { flex: 1; padding: 60px 50px; display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden; }
 
-        /* MESSAGE STYLING */
-        .msg-block { display: flex; margin-top: 35px; animation: fadeIn 0.2s; }
-        .msg-block.compact { margin-top: 8px; padding-left: 115px; }
+        /* Message Styling */
+        .msg-block { display: flex; margin-top: 45px; animation: fadeIn 0.2s; }
+        .msg-block.compact { margin-top: 8px; padding-left: 110px; }
+        .avatar { width: 90px; height: 90px; border-radius: 50%; margin-right: 20px; object-fit: cover; flex-shrink: 0; }
+        .msg-body { flex: 1; max-width: 850px; }
+        .username { font-size: 42px; font-weight: bold; margin-right: 20px; } 
+        .text-content { font-size: 44px; color: var(--text-color); line-height: 1.4; word-wrap: break-word; white-space: pre-wrap; }
 
-        .avatar { width: 95px; height: 95px; border-radius: 50%; margin-right: 20px; object-fit: cover; flex-shrink: 0; }
-        .msg-body { flex: 1; max-width: 1600px; }
-        .user-header { display: flex; align-items: baseline; margin-bottom: 8px; }
-        .username { font-size: 40px; font-weight: bold; margin-right: 20px; } 
-        .timestamp { font-size: 24px; color: var(--timestamp-color); }
-        .text-content { font-size: 38px; color: var(--text-color); line-height: 1.45; word-wrap: break-word; white-space: pre-wrap; }
-
-        /* OPTIMIZED: REDUCED MEDIA SIZE */
+        /* Media: Strict 16:9 in Portrait Frame [cite: 2025-07-25] */
         .media-content { 
-            margin-top: 15px; border-radius: 12px; 
-            max-width: 900px; 
-            max-height: 500px; /* Reduced to ensure visibility */
-            object-fit: contain; 
+            margin-top: 20px; border-radius: 20px; 
+            width: 100%; aspect-ratio: 16 / 9;
+            object-fit: cover; 
             border: 2px solid rgba(255,255,255,0.05); 
         }
 
-        /* SYSTEM MESSAGE (Centered & Italics) */
-        .system-msg { 
-            width: 100%; text-align: center; 
-            color: var(--timestamp-color); font-size: 32px; 
-            margin: 30px 0; font-style: italic; 
-            animation: fadeIn 0.3s; 
+        /* Modals & Overlays */
+        #overlay, .modal { 
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.96); z-index: 20000; 
+            display: flex; justify-content: center; align-items: center; flex-direction: column;
         }
-
-        #typing-indicator { display: none; padding-left: 115px; margin-bottom: 25px; font-size: 28px; color: var(--timestamp-color); }
+        .modal-box { background: #2f3136; padding: 40px; border-radius: 20px; width: 85%; max-height: 80vh; overflow-y: auto; text-align: center; }
+        textarea { width: 100%; height: 250px; background: #40444b; color: white; border-radius: 10px; padding: 15px; font-size: 18px; }
         
-        #input-placeholder { height: 160px; padding: 0 100px 50px; display: flex; align-items: center; }
-        #inner-input { background: var(--input-color); width: 100%; height: 90px; border-radius: 25px; display: flex; align-items: center; padding: 0 40px; font-size: 30px; color: var(--timestamp-color); }
+        .upload-item { background: #36393f; padding: 15px; margin: 10px 0; border-radius: 10px; text-align: left; border: 1px solid #444; }
+        .upload-item label { display: block; margin-bottom: 5px; color: #aaa; font-size: 14px; }
+
+        button { padding: 15px 30px; font-size: 18px; font-weight: bold; cursor: pointer; border-radius: 10px; border: none; background: #5865f2; color: white; width: 100%; margin-top: 15px; }
+        .secondary-btn { background: #4f545c; }
 
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
-        #overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.98); z-index: 20000; display: flex; justify-content: center; align-items: center; }
     </style>
 </head>
 <body>
 
     <div id="overlay">
-        <div style="background:#2f3136; padding:60px; border-radius:30px; text-align:center; border: 3px dashed #5865f2;">
-            <h1>Upload Script</h1>
-            <input type="file" id="scriptInput" accept=".txt">
+        <div class="modal-box">
+            <h2>📜 Paste Script</h2>
+            <textarea id="scriptInput" placeholder="[User]: Hello <media:laughing.gif>"></textarea>
+            <button onclick="scanForAssets()">Next: Prepare Assets ➡️</button>
         </div>
     </div>
 
-    <div id="ui-layer">
-        <button id="rec-btn" class="rec-btn" onclick="startRecording()">🔴 Record Frame</button>
-        <button onclick="prev()">⬅️ Back</button>
-        <button onclick="nextStepManual()">➡️ Next</button>
-        <button onclick="autoPlay()">▶️ Auto Play</button>
-        <button onclick="frame.requestFullscreen()" style="background:#23a55a;">📺 Fullscreen (F)</button>
-        <div id="counter" style="font-size:22px; align-self:center; font-family:monospace;">0 / 0</div>
+    <div id="asset-modal" class="modal" style="display:none;">
+        <div class="modal-box">
+            <h2>🖼️ Upload Required Assets</h2>
+            <p style="color: #bbb;">Upload files used in your script:</p>
+            <div id="asset-list"></div>
+            <button onclick="startEngine()" style="background:#3ba55d;">🚀 Start Rendering</button>
+        </div>
+    </div>
+
+    <div id="ui-layer" style="width: 100%; background: #222; padding: 10px; display: flex; gap: 10px; z-index: 10001;">
+        <button onclick="autoPlay()">▶️ Play</button>
+        <button onclick="prev()" class="secondary-btn">⬅️ Back</button>
     </div>
 
     <div id="render-area">
         <div id="scale-wrapper">
             <div id="render-frame">
                 <div id="chat-scroller"></div>
-                <div id="typing-indicator">
-                    <span id="typing-text">User is typing...</span>
-                </div>
-                <div id="input-placeholder">
-                    <div id="inner-input">Message...</div>
+                <div style="height:200px; padding:0 50px 80px; display:flex; align-items:center;">
+                    <div style="background:#40444b; width:100%; height:100px; border-radius:50px; display:flex; align-items:center; padding:0 40px; font-size:36px; color:#72767d;">Message...</div>
                 </div>
             </div>
         </div>
     </div>
 
     <script>
-        const msgSound = new Audio('assets/sounds/message.mp3'); 
-        const alertSound = new Audio('assets/sounds/alert.mp3'); 
-
         let script = [];
         let index = -1;
         let lastUser = null;
-        let mediaRecorder;
-        let recordedChunks = [];
+        let assetMap = {}; // Stores filename -> ObjectURL (की-वैल्यू स्टोर)
 
         const chat = document.getElementById('chat-scroller');
         const frame = document.getElementById('render-frame');
 
-        // Recording Logic
-        async function startRecording() {
-            try {
-                const stream = await navigator.mediaDevices.getDisplayMedia({
-                    video: { width: 1920, height: 1080, frameRate: 30 }
+        // 1. Scan script for media tags (स्क्रिप्ट स्कैन करें)
+        function scanForAssets() {
+            const text = document.getElementById('scriptInput').value;
+            script = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+            
+            const mediaRegex = /<media:\s*(.*?)\s*>/g;
+            const requiredMedia = new Set();
+            const requiredPfps = new Set();
+
+            script.forEach(line => {
+                // Find media images
+                let m;
+                while ((m = mediaRegex.exec(line)) !== null) requiredMedia.add(m[1]);
+                
+                // Find characters for Pfps
+                const userMatch = line.match(/\[(.*?)\]:/);
+                if (userMatch) requiredPfps.add(userMatch[1].trim());
+            });
+
+            renderAssetUI(Array.from(requiredMedia), Array.from(requiredPfps));
+        }
+
+        // 2. Build Dynamic UI (अपलोड बटन्स जनरेट करें)
+        function renderAssetUI(mediaFiles, characters) {
+            const list = document.getElementById('asset-list');
+            list.innerHTML = "";
+
+            // Media Assets
+            mediaFiles.forEach(file => {
+                const item = createUploadItem(file, `Upload Media: ${file}`, 'media');
+                list.appendChild(item);
+            });
+
+            // Character Pfps
+            characters.forEach(user => {
+                const item = createUploadItem(`${user}.png`, `Upload PFP: ${user}`, 'pfp');
+                list.appendChild(item);
+            });
+
+            document.getElementById('overlay').style.display = 'none';
+            document.getElementById('asset-modal').style.display = 'flex';
+        }
+
+        function createUploadItem(id, labelText, type) {
+            const div = document.createElement('div');
+            div.className = 'upload-item';
+            div.innerHTML = `
+                <label>${labelText}</label>
+                <input type="file" accept="image/*" onchange="storeAsset('${id}', this)">
+            `;
+            return div;
+        }
+
+        function storeAsset(id, input) {
+            const file = input.files[0];
+            if (file) {
+                if (assetMap[id]) URL.revokeObjectURL(assetMap[id]);
+                assetMap[id] = URL.createObjectURL(file);
+            }
+        }
+
+        function startEngine() {
+            document.getElementById('asset-modal').style.display = 'none';
+            adjustScale();
+            window.speechSynthesis.speak(new SpeechSynthesisUtterance("")); 
+        }
+
+        async function render(idx) {
+            const line = script[idx];
+            const match = line.match(/\[(.*?)\]:\s*(.*)/);
+            if (!match) return;
+
+            const user = match[1].trim();
+            const content = match[2].trim();
+            const isMedia = content.match(/<media:\s*(.*?)\s*>/);
+
+            const isCompact = (user === lastUser);
+            const block = document.createElement('div');
+            block.className = `msg-block ${isCompact ? 'compact' : ''}`;
+            
+            let html = '';
+            if (!isCompact) {
+                const pfpSrc = assetMap[`${user}.png`] || `assets/pfps/default.png`;
+                html += `<img class="avatar" src="${pfpSrc}">`;
+                html += `<div class="msg-body"><div class="username">${user}</div>`;
+            } else {
+                html += `<div class="msg-body">`;
+            }
+
+            if (isMedia) {
+                const mediaFile = isMedia[1];
+                const mediaSrc = assetMap[mediaFile] || "";
+                html += `<img class="media-content" src="${mediaSrc}">`;
+                block.innerHTML = html + `</div>`;
+                chat.appendChild(block);
+                new Audio('assets/sound/message.mp3').play();
+                await new Promise(r => setTimeout(r, 2500));
+            } else {
+                html += `<div class="text-content">${content}</div></div>`;
+                block.innerHTML = html;
+                chat.appendChild(block);
+                const utt = new SpeechSynthesisUtterance(content);
+                await new Promise(res => {
+                    utt.onend = () => setTimeout(res, 800);
+                    window.speechSynthesis.speak(utt);
                 });
-                mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp9' });
-                recordedChunks = [];
-                mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) recordedChunks.push(e.data); };
-                mediaRecorder.onstop = () => {
-                    const blob = new Blob(recordedChunks, { type: 'video/webm' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url; a.download = `discord_chat_${Date.now()}.webm`;
-                    a.click();
-                };
-                mediaRecorder.start();
-                document.getElementById('rec-btn').innerText = "Recording...";
-                document.getElementById('rec-btn').classList.add('active');
-            } catch (err) { console.error(err); }
+            }
+            lastUser = user;
+            if (chat.scrollHeight > chat.clientHeight) chat.removeChild(chat.firstChild);
+            document.getElementById('counter').innerText = `${idx+1}/${script.length}`;
+        }
+
+        async function autoPlay() {
+            for (let i = index + 1; i < script.length; i++) {
+                index = i;
+                await render(i);
+            }
         }
 
         function adjustScale() {
-            const scale = Math.min((window.innerWidth - 40) / 1920, (window.innerHeight - 200) / 1080);
+            const scale = Math.min((window.innerWidth - 20) / 1080, (window.innerHeight - 100) / 1920);
             document.getElementById('scale-wrapper').style.transform = `scale(${scale})`;
         }
         window.addEventListener('resize', adjustScale);
-        adjustScale();
 
-        document.getElementById('scriptInput').addEventListener('change', function(e) {
-            const reader = new FileReader();
-            reader.onload = function() {
-                const lines = reader.result.split('\n');
-                script = [];
-                for (let i = 0; i < lines.length; i++) {
-                    let line = lines[i].trim();
-                    if (line.length > 0) script.push(line);
-                }
-                document.getElementById('overlay').style.display = 'none';
-                document.getElementById('counter').innerText = `0 / ${script.length}`;
-            };
-            reader.readAsText(e.target.files[0]);
-        });
-
-        function parse(line) {
-            if (line.startsWith('<') && line.endsWith('>')) {
-                return { type: 'system', text: line.replace(/[<>]/g, '').replace('SYSTEM MESSAGE:', '').trim() };
-            }
-            const match = line.match(/\[(.*?)\]:\s*(.*)/);
-            if (match) {
-                const user = match[1].trim();
-                let content = match[2].trim();
-                const mediaMatch = content.match(/<media:\s*(.*?)\s*>/);
-                return mediaMatch ? { type: 'media', user, file: mediaMatch[1] } : { type: 'text', user, text: content };
-            }
-            return null;
-        }
-
-        function render(idx) {
-            const data = parse(script[idx]);
-            if (!data) return;
-
-            document.getElementById('typing-indicator').style.display = 'none';
-
-            if (data.type === 'system') {
-                alertSound.play();
-                const div = document.createElement('div');
-                div.className = 'system-msg';
-                div.innerText = data.text;
-                chat.appendChild(div);
-                lastUser = null;
-            } else {
-                msgSound.play();
-                const isCompact = (data.user === lastUser);
-                const block = document.createElement('div');
-                block.className = `msg-block ${isCompact ? 'compact' : ''}`;
-
-                let html = '';
-                if (!isCompact) {
-                    html += `<img class="avatar" src="assets/pfps/${data.user}.png" onerror="this.src='assets/pfps/default.png'">`;
-                    html += `<div class="msg-body"><div class="user-header"><span class="username" style="color:${getColor(data.user)}">${data.user}</span><span class="timestamp">Just now</span></div>`;
-                } else {
-                    html += `<div class="msg-body">`;
-                }
-
-                if (data.type === 'text') {
-                    html += `<div class="text-content">${data.text}</div>`;
-                } else {
-                    html += `<img class="media-content" src="assets/chat_images/${data.file}">`;
-                }
-
-                html += `</div>`;
-                block.innerHTML = html;
-                chat.appendChild(block);
-                lastUser = data.user;
-            }
-
-            if (chat.scrollHeight > chat.clientHeight) chat.removeChild(chat.firstChild);
-            document.getElementById('counter').innerText = `${idx+1} / ${script.length}`;
-        }
-
-        // --- UPDATED AUTO PLAY LOGIC ---
-        async function autoPlay() {
-            for (let i = index + 1; i < script.length; i++) {
-                const d = parse(script[i]);
-                
-                if (d && d.user && d.text) {
-                    const wordCount = d.text.split(' ').length;
-                    // Typing only for > 10 words
-                    if (wordCount > 10) {
-                        document.getElementById('typing-text').innerText = `${d.user} is typing...`;
-                        document.getElementById('typing-indicator').style.display = 'block';
-                        // Typing duration based on word count (150ms per word)
-                        await new Promise(r => setTimeout(r, wordCount * 150));
-                    }
-                }
-
-                index = i; render(i);
-                
-                // Slowed down delay logic
-                let waitTime = 1500; // Base wait
-                if (d && d.text) {
-                    waitTime += (d.text.split(' ').length * 200); // 200ms per word extra
-                }
-                await new Promise(r => setTimeout(r, waitTime));
-            }
-            if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop();
-        }
-
-        function nextStepManual() { if (index < script.length - 1) render(++index); }
-        function prev() { index--; chat.innerHTML = ''; lastUser = null; let t = index; index = -1; for(let i=0; i<=t; i++) nextStepManual(); }
-        function getColor(n) { const c = ['#61da8e','#f1bc49','#e84545','#5865f2','#fa89c9','#57cbcb']; let h = 0; for(let i=0; i<n.length; i++) h = n.charCodeAt(i)+((h<<5)-h); return c[Math.abs(h)%c.length]; }
+        function prev() { index = -1; chat.innerHTML = ''; lastUser = null; }
     </script>
 </body>
 </html>
