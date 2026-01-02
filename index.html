@@ -3,13 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Discord Portrait V38 - Smooth & Stable</title>
+    <title>Discord Portrait V39 - PFP & Status Fix</title>
     <style>
         :root {
             --bg-color: #36393f;
             --text-color: #dcddde;
             --timestamp-color: #72767d;
             --blurple: #5865f2;
+            --online-green: #3ba55d;
         }
 
         html, body {
@@ -30,29 +31,25 @@
             overflow: hidden;
         }
 
-        /* --- SCREEN SHAKE ANIMATION --- */
-        @keyframes shake {
-            0% { transform: translate(1px, 1px) rotate(0deg); }
-            10% { transform: translate(-3px, -2px) rotate(-1deg); }
-            20% { transform: translate(-3px, 0px) rotate(1deg); }
-            30% { transform: translate(3px, 2px) rotate(0deg); }
-            40% { transform: translate(1px, -1px) rotate(1deg); }
-            50% { transform: translate(-1px, 2px) rotate(-1deg); }
-            60% { transform: translate(-3px, 1px) rotate(0deg); }
-            70% { transform: translate(3px, 1px) rotate(-1deg); }
-            80% { transform: translate(-1px, -1px) rotate(1deg); }
-            90% { transform: translate(1px, 2px) rotate(0deg); }
-            100% { transform: translate(1px, -2px) rotate(-1deg); }
-        }
-        .shake-active { animation: shake 0.5s; animation-iteration-count: 1; }
-
         #chat-scroller { flex: 1; padding: 60px 50px; display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden; z-index: 5; scroll-behavior: smooth; }
 
         .msg-block { display: flex; margin-top: 45px; animation: fadeIn 0.15s; position: relative; }
         .msg-block.compact { margin-top: 8px; padding-left: 110px; }
         
+        /* Avatar Container with Online Dot */
         .avatar-container { position: relative; width: 95px; height: 95px; margin-right: 20px; flex-shrink: 0; }
         .avatar { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; border: 3px solid #fff; }
+        
+        .status-dot {
+            position: absolute;
+            bottom: 2px;
+            right: 2px;
+            width: 24px;
+            height: 24px;
+            background-color: var(--online-green);
+            border-radius: 50%;
+            border: 6px solid var(--bg-color);
+        }
 
         .msg-body { flex: 1; max-width: 850px; }
         .user-header { display: flex; align-items: center; margin-bottom: 5px; }
@@ -83,7 +80,7 @@
     <div id="overlay">
         <div class="modal-box">
             <h2>📜 Script Input</h2>
-            <textarea id="scriptInput" placeholder="[Delulu]: WHAT!!! This is crazy!!!"></textarea>
+            <textarea id="scriptInput" placeholder="[Delulu]: This is the final version!"></textarea>
             <button onclick="scanAssets()">Scan Assets & Prepare ➡️</button>
         </div>
     </div>
@@ -117,7 +114,7 @@
         let lastUser = null;
         let chatClock = new Date();
         const assetCache = {}; 
-        const uniqueUsers = new Set(); // Store unique users for PFP preloading
+        const uniqueUsers = new Set();
 
         function getUserColor(name) {
             const colors = ['#5865F2', '#3BA55D', '#FAA61A', '#ED4245', '#EB459E', '#A375FF', '#00AFF4'];
@@ -141,7 +138,6 @@
             
             script.forEach(line => {
                 let m; while ((m = mediaRegex.exec(line)) !== null) mediaFiles.add(m[1]);
-                // Capture users for PFP preloading
                 const userMatch = line.match(/\[(.*?)\]:/);
                 if (userMatch) uniqueUsers.add(userMatch[1].trim());
             });
@@ -157,7 +153,6 @@
                 list.appendChild(item);
             });
             
-            // Show start button immediately, PFPs load after click
             document.getElementById('startBtn').style.display = 'block';
         }
 
@@ -166,28 +161,30 @@
             if (file) assetCache[name] = URL.createObjectURL(file);
         }
 
-        // --- NEW: PFP PRELOADER BEFORE TIMER ---
+        // --- IMPROVED PFP LOADER (केस-इनसेंसिटिव सुधार) ---
         async function preloadPfpsAndStart() {
             document.getElementById('startBtn').style.display = 'none';
             document.getElementById('media-list').style.display = 'none';
             const status = document.getElementById('pfp-status');
             status.style.display = 'block';
 
-            // Force browser to fetch images into memory cache
             const preloadPromises = Array.from(uniqueUsers).map(user => {
                 return new Promise((resolve) => {
                     const img = new Image();
-                    // We don't care if it loads or fails (default will handle it), 
-                    // just that the request is made and cached.
                     img.onload = resolve;
-                    img.onerror = resolve; 
-                    img.src = `assets/pfps/${user.toLowerCase()}.png`;
+                    img.onerror = () => {
+                        // Fallback to lowercase if original fails
+                        const imgLow = new Image();
+                        imgLow.onload = resolve;
+                        imgLow.onerror = resolve;
+                        imgLow.src = `assets/pfps/${user.toLowerCase()}.png`;
+                    };
+                    img.src = `assets/pfps/${user}.png`;
                 });
             });
 
-            // Wait a moment for browser to cache (even if promises resolve fast)
             await Promise.all(preloadPromises);
-            await new Promise(r => setTimeout(r, 1000)); // Extra safety buffer
+            await new Promise(r => setTimeout(r, 1000)); 
 
             status.innerText = "✅ Ready! Starting...";
             await new Promise(r => setTimeout(r, 500));
@@ -221,25 +218,15 @@
             const user = match[1].trim();
             const content = match[2].trim();
             const mediaMatch = content.match(/<media:\s*(.*?)\s*>/);
-            // --- SHAKE DETECTION ---
-            const isShake = content.includes('!!!');
 
             const isCompact = (lastUser && lastUser.toLowerCase() === user.toLowerCase());
             const chatScroller = document.getElementById('chat-scroller');
             const typingBox = document.getElementById('typing-box');
             const typerName = document.getElementById('typer-name');
-            const renderFrame = document.getElementById('render-frame');
-
-            // Trigger Shake
-            if (isShake) {
-                renderFrame.classList.add('shake-active');
-                setTimeout(() => renderFrame.classList.remove('shake-active'), 500);
-            }
 
             if (!isCompact) {
                 typerName.innerText = user;
                 typingBox.style.display = 'block';
-                // Slower typing indicator
                 await new Promise(r => setTimeout(r, 1000)); 
                 typingBox.style.display = 'none';
             }
@@ -250,8 +237,11 @@
 
             let html = '';
             if (!isCompact) {
+                // Try Original case first, then fallback to Lowercase in Error
+                const pfpUrl = `assets/pfps/${user}.png`;
                 html += `<div class="avatar-container">
-                            <img class="avatar" src="assets/pfps/${user.toLowerCase()}.png" onerror="this.src='assets/pfps/default.png'">
+                            <img class="avatar" src="${pfpUrl}" onerror="this.onerror=null; this.src='assets/pfps/${user.toLowerCase()}.png'; this.onerror=function(){this.src='assets/pfps/default.png'};">
+                            <div class="status-dot"></div>
                          </div>`;
                 html += `<div class="msg-body">
                             <div class="user-header">
@@ -279,18 +269,12 @@
                 }
                 block.innerHTML += html + `</div>`;
                 chatScroller.appendChild(block);
-                
-                // --- PAUSE AFTER MEDIA ---
-                // Wait 3 seconds after image/gif loads
                 await new Promise(r => setTimeout(r, 3000));
 
             } else {
                 html += `<div class="text-content">${content.replace(/(@\w+)/g, '<span style="color:#00aff4; background:rgba(0,175,244,0.1); padding:0 5px; border-radius:5px;">$1</span>')}</div></div>`;
                 block.innerHTML += html;
                 chatScroller.appendChild(block);
-                
-                // --- SLOWER PACING ---
-                // Base 2000ms + 80ms per character
                 const delay = Math.max(2000, content.length * 80);
                 await new Promise(r => setTimeout(r, delay));
             }
