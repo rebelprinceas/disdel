@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Discord Portrait V39 - PFP & Status Fix</title>
+    <title>Discord Portrait V40 - Built-in Recorder</title>
     <style>
         :root {
             --bg-color: #36393f;
@@ -36,19 +36,14 @@
         .msg-block { display: flex; margin-top: 45px; animation: fadeIn 0.15s; position: relative; }
         .msg-block.compact { margin-top: 8px; padding-left: 110px; }
         
-        /* Avatar Container with Online Dot */
         .avatar-container { position: relative; width: 95px; height: 95px; margin-right: 20px; flex-shrink: 0; }
         .avatar { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; border: 3px solid #fff; }
         
         .status-dot {
-            position: absolute;
-            bottom: 2px;
-            right: 2px;
-            width: 24px;
-            height: 24px;
+            position: absolute; bottom: 2px; right: 2px;
+            width: 24px; height: 24px;
             background-color: var(--online-green);
-            border-radius: 50%;
-            border: 6px solid var(--bg-color);
+            border-radius: 50%; border: 6px solid var(--bg-color);
         }
 
         .msg-body { flex: 1; max-width: 850px; }
@@ -58,7 +53,8 @@
 
         .text-content { font-size: 44px; color: var(--text-color); line-height: 1.35; word-wrap: break-word; white-space: pre-wrap; margin: 0; }
 
-        .media-gif, .media-thumbnail { margin-top: 20px; border-radius: 20px; width: 100%; height: auto; border: 2px solid rgba(255,255,255,0.05); }
+        /* Media: 16:9 Landscape Layout [cite: 2025-07-25] */
+        .media-gif, .media-thumbnail { margin-top: 20px; border-radius: 20px; width: 100%; aspect-ratio: 16/9; object-fit: cover; border: 2px solid rgba(255,255,255,0.05); }
 
         #typing-box { padding: 0 115px 20px; font-size: 32px; color: var(--timestamp-color); display: none; }
 
@@ -80,7 +76,7 @@
     <div id="overlay">
         <div class="modal-box">
             <h2>📜 Script Input</h2>
-            <textarea id="scriptInput" placeholder="[Delulu]: This is the final version!"></textarea>
+            <textarea id="scriptInput" placeholder="[Delulu]: Starting recorder..."></textarea>
             <button onclick="scanAssets()">Scan Assets & Prepare ➡️</button>
         </div>
     </div>
@@ -90,7 +86,7 @@
             <h2>🖼️ Asset Preloader</h2>
             <p id="pfp-status">⏳ Preloading Profile Pics...</p>
             <div id="media-list" style="margin-bottom: 20px;"></div>
-            <button id="startBtn" onclick="preloadPfpsAndStart()" style="background:#3ba55d; display:none;">🚀 Start Recording Mode</button>
+            <button id="startBtn" onclick="initRecordingFlow()" style="background:#3ba55d; display:none;">🚀 Record & Start Animation</button>
         </div>
     </div>
 
@@ -115,6 +111,10 @@
         let chatClock = new Date();
         const assetCache = {}; 
         const uniqueUsers = new Set();
+
+        // Recorder Variables
+        let mediaRecorder;
+        let recordedChunks = [];
 
         function getUserColor(name) {
             const colors = ['#5865F2', '#3BA55D', '#FAA61A', '#ED4245', '#EB459E', '#A375FF', '#00AFF4'];
@@ -161,7 +161,41 @@
             if (file) assetCache[name] = URL.createObjectURL(file);
         }
 
-        // --- IMPROVED PFP LOADER (केस-इनसेंसिटिव सुधार) ---
+        // --- RECORDER FLOW (रिकॉर्डिंग फ्लो) ---
+        async function initRecordingFlow() {
+            try {
+                // Request Display Stream with Audio
+                const stream = await navigator.mediaDevices.getDisplayMedia({
+                    video: { frameRate: 30 },
+                    audio: true
+                });
+
+                mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm; codecs=vp9' });
+                recordedChunks = [];
+
+                mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
+                mediaRecorder.onstop = exportVideo;
+
+                mediaRecorder.start();
+                
+                // Now run the PFP Preloader and Animation
+                preloadPfpsAndStart();
+
+            } catch (err) {
+                alert("Recording failed: " + err.message + "\nAnimation will start without recording.");
+                preloadPfpsAndStart();
+            }
+        }
+
+        function exportVideo() {
+            const blob = new Blob(recordedChunks, { type: 'video/webm' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `discord_portrait_${Date.now()}.webm`;
+            a.click();
+        }
+
         async function preloadPfpsAndStart() {
             document.getElementById('startBtn').style.display = 'none';
             document.getElementById('media-list').style.display = 'none';
@@ -173,10 +207,8 @@
                     const img = new Image();
                     img.onload = resolve;
                     img.onerror = () => {
-                        // Fallback to lowercase if original fails
                         const imgLow = new Image();
-                        imgLow.onload = resolve;
-                        imgLow.onerror = resolve;
+                        imgLow.onload = resolve; imgLow.onerror = resolve;
                         imgLow.src = `assets/pfps/${user.toLowerCase()}.png`;
                     };
                     img.src = `assets/pfps/${user}.png`;
@@ -186,18 +218,15 @@
             await Promise.all(preloadPromises);
             await new Promise(r => setTimeout(r, 1000)); 
 
-            status.innerText = "✅ Ready! Starting...";
+            status.innerText = "✅ Ready! Starting Animation...";
             await new Promise(r => setTimeout(r, 500));
 
             document.getElementById('asset-modal').style.display = 'none';
-            prepareRecording();
+            prepareAnimation();
         }
 
-        function prepareRecording() {
-            const doc = document.documentElement;
-            if (doc.requestFullscreen) doc.requestFullscreen();
-            else if (doc.webkitRequestFullscreen) doc.webkitRequestFullscreen();
-
+        function prepareAnimation() {
+            // Fullscreen is handled by user action during Stream request
             adjustScale();
             let timer = 5;
             const overlay = document.getElementById('countdown-overlay');
@@ -206,7 +235,11 @@
             const int = setInterval(() => {
                 timer--;
                 if (timer > 0) overlay.innerText = timer;
-                else { clearInterval(int); overlay.style.display = 'none'; autoPlay(); }
+                else { 
+                    clearInterval(int); 
+                    overlay.style.display = 'none'; 
+                    autoPlay(); 
+                }
             }, 1000);
         }
 
@@ -222,10 +255,9 @@
             const isCompact = (lastUser && lastUser.toLowerCase() === user.toLowerCase());
             const chatScroller = document.getElementById('chat-scroller');
             const typingBox = document.getElementById('typing-box');
-            const typerName = document.getElementById('typer-name');
 
             if (!isCompact) {
-                typerName.innerText = user;
+                document.getElementById('typer-name').innerText = user;
                 typingBox.style.display = 'block';
                 await new Promise(r => setTimeout(r, 1000)); 
                 typingBox.style.display = 'none';
@@ -237,10 +269,8 @@
 
             let html = '';
             if (!isCompact) {
-                // Try Original case first, then fallback to Lowercase in Error
-                const pfpUrl = `assets/pfps/${user}.png`;
                 html += `<div class="avatar-container">
-                            <img class="avatar" src="${pfpUrl}" onerror="this.onerror=null; this.src='assets/pfps/${user.toLowerCase()}.png'; this.onerror=function(){this.src='assets/pfps/default.png'};">
+                            <img class="avatar" src="assets/pfps/${user}.png" onerror="this.onerror=null; this.src='assets/pfps/${user.toLowerCase()}.png'; this.onerror=function(){this.src='assets/pfps/default.png'};">
                             <div class="status-dot"></div>
                          </div>`;
                 html += `<div class="msg-body">
@@ -286,6 +316,10 @@
         async function autoPlay() {
             for (let i = 0; i < script.length; i++) {
                 index = i; await render(i);
+            }
+            // Stop recorder once script ends
+            if(mediaRecorder && mediaRecorder.state !== "inactive") {
+                mediaRecorder.stop();
             }
         }
 
