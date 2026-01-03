@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Discord Portrait V40 - Built-in Recorder</title>
+    <title>Discord Portrait V41 - Internal Audio Downloader</title>
     <style>
         :root {
             --bg-color: #36393f;
@@ -53,8 +53,7 @@
 
         .text-content { font-size: 44px; color: var(--text-color); line-height: 1.35; word-wrap: break-word; white-space: pre-wrap; margin: 0; }
 
-        /* Media: 16:9 Landscape Layout [cite: 2025-07-25] */
-        .media-gif, .media-thumbnail { margin-top: 20px; border-radius: 20px; width: 100%; aspect-ratio: 16/9; object-fit: cover; border: 2px solid rgba(255,255,255,0.05); }
+        .media-gif, .media-thumbnail { margin-top: 20px; border-radius: 20px; width: 100%; height: auto; border: 2px solid rgba(255,255,255,0.05); }
 
         #typing-box { padding: 0 115px 20px; font-size: 32px; color: var(--timestamp-color); display: none; }
 
@@ -75,8 +74,8 @@
 
     <div id="overlay">
         <div class="modal-box">
-            <h2>📜 Script Input</h2>
-            <textarea id="scriptInput" placeholder="[Delulu]: Starting recorder..."></textarea>
+            <h2>📜 Script & Audio Engine</h2>
+            <textarea id="scriptInput" placeholder="[Delulu]: Internal audio is now active!"></textarea>
             <button onclick="scanAssets()">Scan Assets & Prepare ➡️</button>
         </div>
     </div>
@@ -86,14 +85,14 @@
             <h2>🖼️ Asset Preloader</h2>
             <p id="pfp-status">⏳ Preloading Profile Pics...</p>
             <div id="media-list" style="margin-bottom: 20px;"></div>
-            <button id="startBtn" onclick="initRecordingFlow()" style="background:#3ba55d; display:none;">🚀 Record & Start Animation</button>
+            <button id="startBtn" onclick="initAudioAndStart()" style="background:#3ba55d; display:none;">🚀 Start with Audio Rec</button>
         </div>
     </div>
 
     <div id="render-area">
         <div id="scale-wrapper">
             <div id="render-frame">
-                <video id="overlay-player" style="position:absolute; top:0; left:0; width:100%; height:100%; object-fit:contain; z-index:100; background:#000; display:none;" muted playsinline></video>
+                <video id="overlay-player" crossorigin="anonymous" style="position:absolute; top:0; left:0; width:100%; height:100%; object-fit:contain; z-index:100; background:#000; display:none;" muted playsinline></video>
                 <div id="chat-scroller"></div>
                 <div id="typing-box"><span id="typer-name"></span> is typing...</div>
                 <div style="height:180px; padding:0 50px 80px; display:flex; align-items:center;">
@@ -105,6 +104,7 @@
 
     <script>
         const messageSound = new Audio('assets/sound/message.mp3');
+        messageSound.crossOrigin = "anonymous";
         let script = [];
         let index = -1;
         let lastUser = null;
@@ -112,9 +112,8 @@
         const assetCache = {}; 
         const uniqueUsers = new Set();
 
-        // Recorder Variables
-        let mediaRecorder;
-        let recordedChunks = [];
+        // Audio Recording Variables
+        let audioCtx, audioDest, audioRecorder, audioChunks = [];
 
         function getUserColor(name) {
             const colors = ['#5865F2', '#3BA55D', '#FAA61A', '#ED4245', '#EB459E', '#A375FF', '#00AFF4'];
@@ -161,39 +160,41 @@
             if (file) assetCache[name] = URL.createObjectURL(file);
         }
 
-        // --- RECORDER FLOW (रिकॉर्डिंग फ्लो) ---
-        async function initRecordingFlow() {
-            try {
-                // Request Display Stream with Audio
-                const stream = await navigator.mediaDevices.getDisplayMedia({
-                    video: { frameRate: 30 },
-                    audio: true
-                });
+        // --- AUDIO ENGINE INITIALIZATION (ऑडियो इंजन सेटअप) ---
+        async function initAudioAndStart() {
+            // Setup Web Audio API
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            audioDest = audioCtx.createMediaStreamDestination();
 
-                mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm; codecs=vp9' });
-                recordedChunks = [];
+            // Route Message Sound
+            const sourceMsg = audioCtx.createMediaElementSource(messageSound);
+            sourceMsg.connect(audioDest);
+            sourceMsg.connect(audioCtx.destination); // Connect to speakers too
 
-                mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordedChunks.push(e.data); };
-                mediaRecorder.onstop = exportVideo;
+            // Route Video/Overlay Player Sound
+            const videoPlayer = document.getElementById('overlay-player');
+            const sourceVid = audioCtx.createMediaElementSource(videoPlayer);
+            sourceVid.connect(audioDest);
+            sourceVid.connect(audioCtx.destination);
 
-                mediaRecorder.start();
-                
-                // Now run the PFP Preloader and Animation
-                preloadPfpsAndStart();
+            // Initialize Recorder for the audio stream
+            audioRecorder = new MediaRecorder(audioDest.stream);
+            audioChunks = [];
+            audioRecorder.ondataavailable = e => audioChunks.push(e.data);
+            audioRecorder.onstop = exportAudio;
 
-            } catch (err) {
-                alert("Recording failed: " + err.message + "\nAnimation will start without recording.");
-                preloadPfpsAndStart();
-            }
+            // Start preloading PFPs
+            preloadPfpsAndStart();
         }
 
-        function exportVideo() {
-            const blob = new Blob(recordedChunks, { type: 'video/webm' });
+        function exportAudio() {
+            const blob = new Blob(audioChunks, { type: 'audio/webm' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `discord_portrait_${Date.now()}.webm`;
+            a.download = `discord_audio_${Date.now()}.webm`;
             a.click();
+            alert("Internal Audio Downloaded! Now sync this in your video editor.");
         }
 
         async function preloadPfpsAndStart() {
@@ -218,7 +219,7 @@
             await Promise.all(preloadPromises);
             await new Promise(r => setTimeout(r, 1000)); 
 
-            status.innerText = "✅ Ready! Starting Animation...";
+            status.innerText = "✅ Ready! Start Screen Recording NOW...";
             await new Promise(r => setTimeout(r, 500));
 
             document.getElementById('asset-modal').style.display = 'none';
@@ -226,7 +227,9 @@
         }
 
         function prepareAnimation() {
-            // Fullscreen is handled by user action during Stream request
+            const doc = document.documentElement;
+            if (doc.requestFullscreen) doc.requestFullscreen();
+            
             adjustScale();
             let timer = 5;
             const overlay = document.getElementById('countdown-overlay');
@@ -238,6 +241,7 @@
                 else { 
                     clearInterval(int); 
                     overlay.style.display = 'none'; 
+                    audioRecorder.start(); // Start recording audio exactly when timer hits 0
                     autoPlay(); 
                 }
             }, 1000);
@@ -265,6 +269,9 @@
 
             const block = document.createElement('div');
             block.className = `msg-block ${isCompact ? 'compact' : ''}`;
+            
+            // Audio check for Chrome Autoplay policies
+            if (audioCtx.state === 'suspended') audioCtx.resume();
             messageSound.currentTime = 0; messageSound.play();
 
             let html = '';
@@ -287,6 +294,7 @@
 
                 if (isVideo && src) {
                     const player = document.getElementById('overlay-player');
+                    player.muted = false; // Ensure it's not muted for recording
                     player.src = src; player.style.display = 'block';
                     await player.play();
                     await new Promise(res => {
@@ -318,8 +326,8 @@
                 index = i; await render(i);
             }
             // Stop recorder once script ends
-            if(mediaRecorder && mediaRecorder.state !== "inactive") {
-                mediaRecorder.stop();
+            if(audioRecorder && audioRecorder.state !== "inactive") {
+                audioRecorder.stop();
             }
         }
 
